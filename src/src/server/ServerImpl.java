@@ -1,0 +1,229 @@
+package server;
+import common.InterfazDeServer;
+
+import java.rmi.RemoteException;
+import java.rmi.server.UnicastRemoteObject;
+import java.sql.*;
+import java.util.ArrayList;
+
+import common.Persona;
+
+public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer {
+    private static final long serialVersionUID = 1L;
+    private ArrayList<Persona> bdPersonas = new ArrayList<>();
+    private Connection connection;
+
+    public ServerImpl() throws RemoteException {
+        super();
+        conectarBD();
+        cargarPersonasDeBD();
+    }
+
+    private void conectarBD() {
+        try {
+            String url = "jdbc:mysql://localhost:3306/bd_tarea"; // 
+            String username = "root"; // 
+            String password_BD = ""; // 
+            connection = DriverManager.getConnection(url, username, password_BD);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            System.out.println("No se pudo conectar a la base de datos.");
+        }
+    }
+
+    private void cargarPersonasDeBD() {
+        if (connection == null) {
+            conectarBD();
+        }
+        try (Statement stmt = connection.createStatement()) {
+            String sql = "SELECT * FROM cliente"; // 
+            ResultSet rs = stmt.executeQuery(sql);
+
+            while (rs.next()) {
+                String nombre = rs.getString("nombre");
+                String fechaNacimiento = rs.getString("fechaNacimiento");
+                String rut = rs.getString("rut");
+                int monto = rs.getInt("monto");
+
+                Persona persona = new Persona(nombre, fechaNacimiento, rut, monto);
+                bdPersonas.add(persona);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            System.out.println("Error al cargar personas desde la base de datos.");
+        }
+    }
+
+    @Override
+    public ArrayList<Persona> getPersonas() throws RemoteException {
+        ArrayList<Persona> listaPersonas = new ArrayList<>();
+
+        if (connection == null) {
+            conectarBD();
+        }
+
+        String sql = "SELECT * FROM cliente"; // Obtenemos todas los clientes desde la base de datos
+        try (Statement stmt = connection.createStatement()) {
+            ResultSet rs = stmt.executeQuery(sql);
+
+            while (rs.next()) {
+                String nombre = rs.getString("nombre");
+                String fechaNacimiento = rs.getString("fechaNacimiento");
+                String rut = rs.getString("rut");
+                int monto = rs.getInt("monto"); // Obtiene el monto actual
+
+                Persona persona = new Persona(nombre, fechaNacimiento, rut, monto);
+                listaPersonas.add(persona); // Añade a la lista
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            System.out.println("Error al obtener la lista de personas.");
+        }
+
+        return listaPersonas; // Devuelve la lista actualizada
+    }
+
+    @Override
+    public void agregarPersona(String nombre, String fechaNacimiento, String rut, int monto) throws RemoteException {
+        if (connection == null) {
+            conectarBD();
+        }
+
+        Persona newPersona = new Persona(nombre, fechaNacimiento, rut, monto);
+        bdPersonas.add(newPersona);
+
+        String sql = "INSERT INTO cliente (nombre, fechaNacimiento, rut, monto) VALUES (?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, nombre);
+            pstmt.setString(2, fechaNacimiento);
+            pstmt.setString(3, rut);
+            pstmt.setInt(4, monto);
+
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                System.out.println("Se agregó la persona a la base de datos.");
+            } else {
+                System.out.println("No se pudo agregar la persona a la base de datos.");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            System.out.println("Error al agregar persona a la base de datos.");
+        }
+    }
+    
+    
+    @Override
+    public Persona buscarPersonaPorRUT(String rut) throws RemoteException {
+        if (connection == null) {
+            conectarBD();
+        }
+
+        Persona personaEncontrada = null;
+
+        String sql = "SELECT * FROM cliente WHERE rut = ?"; // 
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, rut);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) { // Si hay un resultado
+                String nombre = rs.getString("nombre");
+                String fechaNacimiento = rs.getString("fechaNacimiento");
+                int monto = rs.getInt("monto");
+
+                personaEncontrada = new Persona(nombre, fechaNacimiento, rut, monto);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            System.out.println("Error al buscar persona por RUT.");
+        }
+
+        return personaEncontrada; // Devuelve la persona encontrada o null si no hay resultado
+    }
+
+    
+    @Override
+    public boolean agregarMonto(String rut, double monto) throws RemoteException {
+        if (connection == null) {
+            conectarBD();
+        }
+
+        String sql = "UPDATE cliente SET monto = monto + ? WHERE rut = ?"; // Agregar monto al existente
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setDouble(1, monto);
+            pstmt.setString(2, rut);
+
+            int rowsAffected = pstmt.executeUpdate(); // Verificar si la operación fue exitosa
+            return rowsAffected > 0; // Devuelve true si se realizó con éxito
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false; // Devuelve false si hubo un error
+        }
+    }
+
+    @Override
+    public boolean retirarMonto(String rut, double monto) throws RemoteException {
+        if (connection == null) {
+            conectarBD();
+        }
+
+        // Primero, obtener el monto actual para verificar que el retiro no deje saldo negativo
+        String selectSql = "SELECT monto FROM cliente WHERE rut = ?"; 
+        double montoActual = 0;
+        try (PreparedStatement pstmt = connection.prepareStatement(selectSql)) {
+            pstmt.setString(1, rut);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                montoActual = rs.getDouble("monto");
+            }
+
+            // Verificar si el retiro es posible
+            if (montoActual >= monto) {
+                // Ahora, realizar el retiro si es posible
+                String updateSql = "UPDATE cliente SET monto = monto - ? WHERE rut = ?"; 
+                try (PreparedStatement updateStmt = connection.prepareStatement(updateSql)) {
+                    updateStmt.setDouble(1, monto);
+                    updateStmt.setString(2, rut);
+
+                    int rowsAffected = updateStmt.executeUpdate(); 
+                    return rowsAffected > 0; // Retorna true si el retiro fue exitoso
+                }
+            } else {
+                System.out.println("El cliente no tiene suficiente saldo para retirar.");
+                return false; // Retorno false si no hay suficiente saldo
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false; // Devuelve false si hubo un error
+        }
+    }
+    
+    public double convertirMontoADolar(String rut) throws RemoteException {
+        // Obtener la tasa de cambio actual
+        ApiExterna apiExterna = new ApiExterna();
+        double clpToUsd = apiExterna.obtenerTasaCambioCLPaUSD(); // Obtener CLP a USD
+
+        if (clpToUsd < 0) { // Si hubo un error al obtener la tasa
+            throw new RemoteException("No se pudo obtener la tasa de cambio.");
+        }
+
+        // Buscar la persona por RUT para obtener su monto
+        Persona persona = buscarPersonaPorRUT(rut);
+
+        if (persona == null) { // Si no se encontró la persona
+            throw new RemoteException("No se encontró un cliente con el RUT: " + rut);
+        }
+
+        // Obtener el monto del cliente en CLP y convertirlo a USD
+        double montoEnClp = persona.getMonto();
+        double montoEnUsd = montoEnClp * clpToUsd; // Convertir el monto a USD
+
+        return montoEnUsd; // Devuelve el monto convertido
+    }
+
+	@Override
+	public void Persona(String nombre, String fechaNacimiento, String rut, int monto) throws RemoteException {
+		// TODO Auto-generated method stub
+		
+	}
+}
