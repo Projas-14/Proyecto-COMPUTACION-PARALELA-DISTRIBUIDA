@@ -13,4 +13,8 @@ public interface InterfazDeServer extends Remote {
     boolean retirarMonto(String rut, double monto) throws RemoteException; 
     double convertirMontoADolar(String rut) throws RemoteException;
 	ArrayList<common.Persona> getPersonas() throws RemoteException;
+	
+	boolean requestMutex()throws RemoteException;
+	void releaseMutex () throws RemoteException;
+	boolean eliminarPersonaPorRUT(String rut) throws RemoteException;
 }

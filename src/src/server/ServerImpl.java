@@ -12,6 +12,7 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
     private static final long serialVersionUID = 1L;
     private ArrayList<Persona> bdPersonas = new ArrayList<>();
     private Connection connection;
+    private boolean inUse;
 
     public ServerImpl() throws RemoteException {
         super();
@@ -31,7 +32,8 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
         }
     }
 
-    private void cargarPersonasDeBD() {
+    private void cargarPersonasDeBD() throws RemoteException {
+
         if (connection == null) {
             conectarBD();
         }
@@ -56,6 +58,19 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
 
     @Override
     public ArrayList<Persona> getPersonas() throws RemoteException {
+    	while(true) {
+    		if(requestMutex()) {
+    			System.out.println("Tengo permiso para iniciar la sección critica");
+    			break;
+    		}
+    		try {
+    			Thread.sleep(2000);    		
+    		} catch(InterruptedException e) {
+    				e.printStackTrace();
+    		}
+    		System.out.println("Aún no tengo permiso...");
+    	}
+    	
         ArrayList<Persona> listaPersonas = new ArrayList<>();
 
         if (connection == null) {
@@ -79,12 +94,39 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
             e.printStackTrace();
             System.out.println("Error al obtener la lista de personas.");
         }
-
+        int duracionSleep = 8000;
+        System.out.println("Iniciando busqueda. Tiempo estimado: " + duracionSleep);
+        
+        try {
+        	Thread.sleep(duracionSleep);
+        } catch(InterruptedException e) {
+        	e.printStackTrace();
+        }
+        releaseMutex();
+        
+        
+        System.out.println("Busqueda exitosa");
+        
+        
         return listaPersonas; // Devuelve la lista actualizada
     }
 
     @Override
     public void agregarPersona(String nombre, String fechaNacimiento, String rut, int monto) throws RemoteException {
+    	while(true) {
+    		if(requestMutex()) {
+    			System.out.println("Tengo permiso para iniciar la sección critica");
+    			break;
+    		}
+    		try {
+    			Thread.sleep(2000);    		
+    		} catch(InterruptedException e) {
+    				e.printStackTrace();
+    		}
+    		System.out.println("Aún no tengo permiso...");
+    	}
+    	
+    	
         if (connection == null) {
             conectarBD();
         }
@@ -101,7 +143,7 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
 
             int rowsAffected = pstmt.executeUpdate();
             if (rowsAffected > 0) {
-                System.out.println("Se agregó la persona a la base de datos.");
+                //System.out.println("Se agregó la persona a la base de datos.");
             } else {
                 System.out.println("No se pudo agregar la persona a la base de datos.");
             }
@@ -109,11 +151,36 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
             e.printStackTrace();
             System.out.println("Error al agregar persona a la base de datos.");
         }
+        int duracionSleep = 8000;
+        System.out.println("Iniciando inserción. Tiempo estimado: " + duracionSleep);
+        
+        try {
+        	Thread.sleep(duracionSleep);
+        } catch(InterruptedException e) {
+        	e.printStackTrace();
+        }
+        releaseMutex();
+        
+        
+        System.out.println("Insert exitoso, agregado a la base de datos: " + nombre);
     }
     
     
     @Override
     public Persona buscarPersonaPorRUT(String rut) throws RemoteException {
+    	while(true) {
+    		if(requestMutex()) {
+    			System.out.println("Tengo permiso para iniciar la sección critica");
+    			break;
+    		}
+    		try {
+    			Thread.sleep(2000);    		
+    		} catch(InterruptedException e) {
+    				e.printStackTrace();
+    		}
+    		System.out.println("Aún no tengo permiso...");
+    	}
+    	
         if (connection == null) {
             conectarBD();
         }
@@ -135,7 +202,20 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
         } catch (SQLException e) {
             e.printStackTrace();
             System.out.println("Error al buscar persona por RUT.");
+            
         }
+        int duracionSleep = 8000;
+        System.out.println("Iniciando inserción. Tiempo estimado: " + duracionSleep);
+        
+        try {
+        	Thread.sleep(duracionSleep);
+        } catch(InterruptedException e) {
+        	e.printStackTrace();
+        }
+        releaseMutex();
+        
+        
+        System.out.println("Busqueda de persona realizada con éxito");
 
         return personaEncontrada; // Devuelve la persona encontrada o null si no hay resultado
     }
@@ -158,6 +238,10 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
             e.printStackTrace();
             return false; // Devuelve false si hubo un error
         }
+        
+
+
+        
     }
 
     @Override
@@ -199,6 +283,19 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
     }
     
     public double convertirMontoADolar(String rut) throws RemoteException {
+    	/*while(true) {
+    		if(requestMutex()) {
+    			System.out.println("Tengo permiso para iniciar la sección critica");
+    			break;
+    		}
+    		try {
+    			Thread.sleep(2000);    		
+    		} catch(InterruptedException e) {
+    				e.printStackTrace();
+    		}
+    		System.out.println("Aún no tengo permiso...");
+    	}*/
+    	
         // Obtener la tasa de cambio actual
         ApiExterna apiExterna = new ApiExterna();
         double clpToUsd = apiExterna.obtenerTasaCambioCLPaUSD(); // Obtener CLP a USD
@@ -217,6 +314,20 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
         // Obtener el monto del cliente en CLP y convertirlo a USD
         double montoEnClp = persona.getMonto();
         double montoEnUsd = montoEnClp * clpToUsd; // Convertir el monto a USD
+        
+        int duracionSleep = 8000;
+        System.out.println("Iniciando transformación. Tiempo estimado: " + duracionSleep);
+        
+       /* try {
+        	Thread.sleep(duracionSleep);
+        } catch(InterruptedException e) {
+        	e.printStackTrace();
+        }
+        releaseMutex();
+        
+        
+        System.out.println("Transformación de monto realizada con exito");*/
+
 
         return montoEnUsd; // Devuelve el monto convertido
     }
@@ -226,4 +337,74 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
 		// TODO Auto-generated method stub
 		
 	}
+	
+	@Override
+	public synchronized boolean requestMutex() throws RemoteException{
+		if (inUse) {
+			return false; //esta ocupado, no se puede dar acceso
+		}else
+		{
+			inUse = true;
+			return true;
+		}
+	
+	}
+	
+	public void releaseMutex() throws RemoteException{
+		inUse = false;
+	}
+	
+	@Override
+	public boolean eliminarPersonaPorRUT(String rut) throws RemoteException {
+
+	    while (true) {
+	        if (requestMutex()) {
+	            System.out.println("Tengo permiso para iniciar la sección crítica");
+	            break;
+	        }
+	        try {
+	            Thread.sleep(2000);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+	        System.out.println("Aún no tengo permiso...");
+	    }
+
+	    if (connection == null) {
+	        conectarBD();
+	    }
+	    
+	    String sql = "DELETE FROM cliente WHERE rut = ?";
+	    boolean result = false;
+	    
+	    try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+	        pstmt.setString(1, rut);
+
+	        int rowsAffected = pstmt.executeUpdate();
+	        if (rowsAffected > 0) {
+	            bdPersonas.removeIf(persona -> persona.getRut().equals(rut));
+	            System.out.println("Cliente eliminado correctamente.");
+	            result = true;
+	        } else {
+	            System.out.println("No se encontró el cliente con el RUT especificado.");
+	        }
+	    } catch (SQLException e) {
+	        e.printStackTrace();
+	        System.out.println("Error al eliminar el cliente.");
+	    }
+
+	    int duracionSleep = 8000;
+	    System.out.println("Iniciando eliminación. Tiempo estimado: " + duracionSleep);
+	    
+	    try {
+	        Thread.sleep(duracionSleep);
+	    } catch(InterruptedException e) {
+	        e.printStackTrace();
+	    }
+
+	    releaseMutex();
+	    
+	    return result;
+	}
+
 }

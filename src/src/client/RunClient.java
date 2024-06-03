@@ -55,7 +55,8 @@ public class RunClient {
             System.out.println("1. Agregar Persona");
             System.out.println("2. Mostrar Personas");
             System.out.println("3. Buscar Persona por RUT");
-            System.out.println("4. Volver al Menú Principal");
+            System.out.println("4. Eliminar Persona por RUT");
+            System.out.println("5. Volver al Menú Principal");
             System.out.print("Seleccione una opción: ");
             opcionPersonas = scanner.nextInt();
             scanner.nextLine(); // Limpiar el buffer
@@ -71,6 +72,9 @@ public class RunClient {
                     client.buscarPersonaPorRUT(); // Buscar una persona por RUT
                     break;
                 case 4:
+                	client.eliminarPersonaPorRUT();
+                	break;
+                case 5:
                     System.out.println("Volviendo al Menú Principal...");
                     break;
                 default:
