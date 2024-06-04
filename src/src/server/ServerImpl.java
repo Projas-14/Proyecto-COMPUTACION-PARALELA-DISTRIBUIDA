@@ -223,36 +223,78 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
     
     @Override
     public boolean agregarMonto(String rut, double monto) throws RemoteException {
+        // Solicitar acceso a la sección crítica
+        while (true) {
+            if (requestMutex()) {
+                System.out.println("Tengo permiso para iniciar la sección crítica");
+                break;
+            }
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println("Aún no tengo permiso...");
+        }
+
         if (connection == null) {
             conectarBD();
         }
 
-        String sql = "UPDATE cliente SET monto = monto + ? WHERE rut = ?"; // Agregar monto al existente
+        String sql = "UPDATE cliente SET monto = monto + ? WHERE rut = ?";
+        boolean result = false;
+        
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setDouble(1, monto);
             pstmt.setString(2, rut);
 
-            int rowsAffected = pstmt.executeUpdate(); // Verificar si la operación fue exitosa
-            return rowsAffected > 0; // Devuelve true si se realizó con éxito
+            int rowsAffected = pstmt.executeUpdate();
+            result = rowsAffected > 0; // Verificar si la operación fue exitosa
         } catch (SQLException e) {
             e.printStackTrace();
-            return false; // Devuelve false si hubo un error
+            result = false; // Devuelve false si hubo un error
         }
-        
 
-
+        int duracionSleep = 8000;
+        System.out.println("Iniciando actualización. Tiempo estimado: " + duracionSleep);
         
+        try {
+            Thread.sleep(duracionSleep);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        releaseMutex();
+        System.out.println("Actualización de monto completada con éxito");
+
+        return result;
     }
+
 
     @Override
     public boolean retirarMonto(String rut, double monto) throws RemoteException {
+        // Solicitar acceso a la sección crítica
+        while (true) {
+            if (requestMutex()) {
+                System.out.println("Tengo permiso para iniciar la sección crítica");
+                break;
+            }
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println("Aún no tengo permiso...");
+        }
+
         if (connection == null) {
             conectarBD();
         }
 
-        // Primero, obtener el monto actual para verificar que el retiro no deje saldo negativo
-        String selectSql = "SELECT monto FROM cliente WHERE rut = ?"; 
+        String selectSql = "SELECT monto FROM cliente WHERE rut = ?";
         double montoActual = 0;
+        boolean result = false;
+
         try (PreparedStatement pstmt = connection.prepareStatement(selectSql)) {
             pstmt.setString(1, rut);
             ResultSet rs = pstmt.executeQuery();
@@ -263,24 +305,38 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
 
             // Verificar si el retiro es posible
             if (montoActual >= monto) {
-                // Ahora, realizar el retiro si es posible
-                String updateSql = "UPDATE cliente SET monto = monto - ? WHERE rut = ?"; 
+                String updateSql = "UPDATE cliente SET monto = monto - ? WHERE rut = ?";
                 try (PreparedStatement updateStmt = connection.prepareStatement(updateSql)) {
                     updateStmt.setDouble(1, monto);
                     updateStmt.setString(2, rut);
 
-                    int rowsAffected = updateStmt.executeUpdate(); 
-                    return rowsAffected > 0; // Retorna true si el retiro fue exitoso
+                    int rowsAffected = updateStmt.executeUpdate();
+                    result = rowsAffected > 0; // Retorna true si el retiro fue exitoso
                 }
             } else {
                 System.out.println("El cliente no tiene suficiente saldo para retirar.");
-                return false; // Retorno false si no hay suficiente saldo
+                result = false; // Retorno false si no hay suficiente saldo
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            return false; // Devuelve false si hubo un error
+            result = false; // Devuelve false si hubo un error
         }
+
+        int duracionSleep = 8000;
+        System.out.println("Iniciando retiro. Tiempo estimado: " + duracionSleep);
+
+        try {
+            Thread.sleep(duracionSleep);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        releaseMutex();
+        System.out.println("Retiro de monto completado con éxito");
+
+        return result;
     }
+
     
     public double convertirMontoADolar(String rut) throws RemoteException {
     	/*while(true) {
