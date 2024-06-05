@@ -113,58 +113,69 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
 
     @Override
     public void agregarPersona(String nombre, String fechaNacimiento, String rut, int monto) throws RemoteException {
-    	while(true) {
-    		if(requestMutex()) {
-    			System.out.println("Tengo permiso para iniciar la sección critica");
-    			break;
-    		}
-    		try {
-    			Thread.sleep(2000);    		
-    		} catch(InterruptedException e) {
-    				e.printStackTrace();
-    		}
-    		System.out.println("Aún no tengo permiso...");
-    	}
-    	
-    	
+        while (true) {
+            if (requestMutex()) {
+                System.out.println("Tengo permiso para iniciar la sección crítica");
+                break;
+            }
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println("Aún no tengo permiso...");
+        }
+
         if (connection == null) {
             conectarBD();
         }
 
-        Persona newPersona = new Persona(nombre, fechaNacimiento, rut, monto);
-        bdPersonas.add(newPersona);
+        try {
+            // Verificar si el RUT ya existe
+            String checkSql = "SELECT COUNT(*) FROM cliente WHERE rut = ?";
+            try (PreparedStatement checkStmt = connection.prepareStatement(checkSql)) {
+                checkStmt.setString(1, rut);
+                ResultSet rs = checkStmt.executeQuery();
+                if (rs.next() && rs.getInt(1) > 0) {
+                    System.out.println("El RUT ya existe en la base de datos. No se puede agregar la persona.");
+                    releaseMutex();
+                    throw new RemoteException("El cliente con el RUT " + rut + " ya existe.");
+                }
+            }
 
-        String sql = "INSERT INTO cliente (nombre, fechaNacimiento, rut, monto) VALUES (?, ?, ?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, nombre);
-            pstmt.setString(2, fechaNacimiento);
-            pstmt.setString(3, rut);
-            pstmt.setInt(4, monto);
+            // Si el RUT no existe, proceder a agregar la persona
+            String sql = "INSERT INTO cliente (nombre, fechaNacimiento, rut, monto) VALUES (?, ?, ?, ?)";
+            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                pstmt.setString(1, nombre);
+                pstmt.setString(2, fechaNacimiento);
+                pstmt.setString(3, rut);
+                pstmt.setInt(4, monto);
 
-            int rowsAffected = pstmt.executeUpdate();
-            if (rowsAffected > 0) {
-                //System.out.println("Se agregó la persona a la base de datos.");
-            } else {
-                System.out.println("No se pudo agregar la persona a la base de datos.");
+                int rowsAffected = pstmt.executeUpdate();
+                if (rowsAffected > 0) {
+                    System.out.println("Se agregó la persona a la base de datos.");
+                } else {
+                    System.out.println("No se pudo agregar la persona a la base de datos.");
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
             System.out.println("Error al agregar persona a la base de datos.");
+        } finally {
+            int duracionSleep = 8000;
+            System.out.println("Iniciando inserción. Tiempo estimado: " + duracionSleep);
+
+            try {
+                Thread.sleep(duracionSleep);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            releaseMutex();
+            System.out.println("Solicitrud realizada con exito");
         }
-        int duracionSleep = 8000;
-        System.out.println("Iniciando inserción. Tiempo estimado: " + duracionSleep);
-        
-        try {
-        	Thread.sleep(duracionSleep);
-        } catch(InterruptedException e) {
-        	e.printStackTrace();
-        }
-        releaseMutex();
-        
-        
-        System.out.println("Insert exitoso, agregado a la base de datos: " + nombre);
     }
-    
+
     
     @Override
     public Persona buscarPersonaPorRUT(String rut) throws RemoteException {
@@ -332,26 +343,13 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
         }
 
         releaseMutex();
-        System.out.println("Retiro de monto completado con éxito");
+        System.out.println("Retiro de monto completado");
 
         return result;
     }
 
     
     public double convertirMontoADolar(String rut) throws RemoteException {
-    	/*while(true) {
-    		if(requestMutex()) {
-    			System.out.println("Tengo permiso para iniciar la sección critica");
-    			break;
-    		}
-    		try {
-    			Thread.sleep(2000);    		
-    		} catch(InterruptedException e) {
-    				e.printStackTrace();
-    		}
-    		System.out.println("Aún no tengo permiso...");
-    	}*/
-    	
         // Obtener la tasa de cambio actual
         ApiExterna apiExterna = new ApiExterna();
         double clpToUsd = apiExterna.obtenerTasaCambioCLPaUSD(); // Obtener CLP a USD
@@ -374,17 +372,6 @@ public class ServerImpl extends UnicastRemoteObject implements InterfazDeServer 
         int duracionSleep = 8000;
         System.out.println("Iniciando transformación. Tiempo estimado: " + duracionSleep);
         
-       /* try {
-        	Thread.sleep(duracionSleep);
-        } catch(InterruptedException e) {
-        	e.printStackTrace();
-        }
-        releaseMutex();
-        
-        
-        System.out.println("Transformación de monto realizada con exito");*/
-
-
         return montoEnUsd; // Devuelve el monto convertido
     }
 

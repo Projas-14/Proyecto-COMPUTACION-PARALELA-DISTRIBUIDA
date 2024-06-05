@@ -47,35 +47,46 @@ public class Client {
 	
 
 	 public void agregarPersona() throws RemoteException {
-		 	System.out.println("\nEnviando solicitud al server...");
-		 	
+		    System.out.println("\nEnviando solicitud al server...");
+
 		    System.out.println("Ingrese el nombre de la nueva persona:");
 		    String nombre = scanner.nextLine();
-		    
+
 		    System.out.println("Ingrese la fecha de nacimiento (YYYY-MM-DD):");
 		    String fecha = scanner.nextLine();
-		    
-		    System.out.println("Ingrese el rut");
+
+		    System.out.println("Ingrese el RUT:");
 		    String rut = scanner.nextLine();
-		    
-		    System.out.println("Ingrese el monto");
+
+		    System.out.println("Ingrese el monto:");
 		    int monto = Integer.parseInt(scanner.nextLine());
 
 		    try {
-		        // Simular un error al agregar persona
 		        server.agregarPersona(nombre, fecha, rut, monto);
 		        System.out.println("Se ha agregado una nueva persona: " + nombre);
 		    } catch (RemoteException e) {
-		        if (conectadoAServerPrincipal) {
-		            System.out.println("Error al agregar persona en el servidor principal. Intentando con el servidor de respaldo...");
-		            cambiarAServerRespaldo(); //cambio a server de respaldo
-		            System.out.println("Reintento respaldo:  " + nombre);
-		            server.agregarPersona(nombre, fecha, rut, monto);//intento agregar de nuevo
+		        String errorMessage = e.getMessage();
+		        if (errorMessage != null && errorMessage.contains("ya existe")) {
+		            System.out.println("Error: el cliente ya existe" );
 		        } else {
-		            throw e;
+		            System.out.println("Error al agregar persona en el servidor principal.");
+		            if (conectadoAServerPrincipal) {
+		                System.out.println("Intentando con el servidor de respaldo...");
+		                cambiarAServerRespaldo(); // Cambio a server de respaldo
+		                try {
+		                    server.agregarPersona(nombre, fecha, rut, monto); // Intento agregar de nuevo
+		                    System.out.println("Se ha agregado una nueva persona en el servidor de respaldo: " + nombre);
+		                } catch (RemoteException re) {
+		                    System.out.println("Error también en el servidor de respaldo.");
+		                    throw re;
+		                }
+		            } else {
+		                throw e;
+		            }
 		        }
 		    }
 		}
+
 
     
     public void getPersonas() throws RemoteException {
